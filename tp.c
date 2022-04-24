@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 #include <pthread.h>
 
 
@@ -37,14 +38,17 @@ static Buffer buffer_create(uint64_t size) {
                     .elems = malloc(size * sizeof(uint64_t))};
 }
 
-static void buffer_init(Buffer buf) {
+static uint64_t buffer_init(Buffer buf) {
     uint64_t state = 1;
+    uint64_t sum = 0;
     for (unsigned index = 0; index < buf.size; index++) {
         state ^= state << 13;
         state ^= state << 7;
         state ^= state << 17;
         buf.elems[index] = state;
+        sum += state;
     }
+    return sum;
 }
 
 static void * worker(void * arg) {
@@ -57,16 +61,12 @@ static void * worker(void * arg) {
     return NULL;
 }
 
-static void go(unsigned num_threads, uint64_t size_bytes) {
-    uint64_t size = ceil_div(size_bytes, sizeof(uint64_t));
-    Buffer buf = buffer_create(size);
-    buffer_init(buf);
+static uint64_t run_workers(Buffer buf, unsigned num_threads) {
     Work tasks[num_threads];
-    uint64_t start_time = get_time();
     for (unsigned index = 0; index < num_threads; index++) {
         tasks[index] = (Work){.buf = buf,
-                              .start = (index * size) / num_threads,
-                              .end = ((index + 1) * size) / num_threads};
+                              .start = (index * buf.size) / num_threads,
+                              .end = ((index + 1) * buf.size) / num_threads};
         int err = pthread_create(&tasks[index].thread, NULL,
                                  worker, &tasks[index]);
         if (err) {
@@ -74,13 +74,25 @@ static void go(unsigned num_threads, uint64_t size_bytes) {
             exit(-1);
         }
     }
+    uint64_t sum = 0;
     for (unsigned index = 0; index < num_threads; index++) {
         int err = pthread_join(tasks[index].thread, NULL);
         if (err) {
             perror("pthread_join");
             exit(-1);
         }
+        sum += tasks[index].sum_out;
     }
+    return sum;
+}
+
+static void go(unsigned num_threads, uint64_t size_bytes) {
+    uint64_t size = ceil_div(size_bytes, sizeof(uint64_t));
+    Buffer buf = buffer_create(size);
+    uint64_t expected_sum = buffer_init(buf);
+    uint64_t start_time = get_time();
+    uint64_t sum = run_workers(buf, num_threads);
+    assert(sum == expected_sum);
     uint64_t end_time = get_time();
     uint64_t elapsed_time = end_time - start_time;
     printf("%.3f GB/s\n", (float)size_bytes / (float)elapsed_time);
