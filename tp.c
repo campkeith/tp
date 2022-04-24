@@ -37,6 +37,16 @@ static Buffer buffer_create(uint64_t size) {
                     .elems = malloc(size * sizeof(uint64_t))};
 }
 
+static void buffer_init(Buffer buf) {
+    uint64_t state = 1;
+    for (unsigned index = 0; index < buf.size; index++) {
+        state ^= state << 13;
+        state ^= state << 7;
+        state ^= state << 17;
+        buf.elems[index] = state;
+    }
+}
+
 static void * worker(void * arg) {
     Work * work = arg;
     uint64_t sum = 0;
@@ -50,6 +60,7 @@ static void * worker(void * arg) {
 static void go(unsigned num_threads, uint64_t size_bytes) {
     uint64_t size = ceil_div(size_bytes, sizeof(uint64_t));
     Buffer buf = buffer_create(size);
+    buffer_init(buf);
     Work tasks[num_threads];
     uint64_t start_time = get_time();
     for (unsigned index = 0; index < num_threads; index++) {
