@@ -1,5 +1,5 @@
 tp: tp.c
-	cc -std=c99 -Wall -Ofast -lpthread $^ -o $@
+	cc -Wall -Ofast -lpthread $^ -o $@
 
 .PHONY: clean
 clean:

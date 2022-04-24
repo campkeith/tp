@@ -1,7 +1,9 @@
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <pthread.h>
+#include <inttypes.h>
 
 
 typedef struct {
@@ -41,7 +43,7 @@ static Buffer buffer_create(uint64_t size) {
 static uint64_t buffer_init(Buffer buf) {
     uint64_t state = 1;
     uint64_t sum = 0;
-    for (unsigned index = 0; index < buf.size; index++) {
+    for (uint64_t index = 0; index < buf.size; index++) {
         state ^= state << 13;
         state ^= state << 7;
         state ^= state << 17;
@@ -54,7 +56,7 @@ static uint64_t buffer_init(Buffer buf) {
 static void * worker(void * arg) {
     Work * work = arg;
     uint64_t sum = 0;
-    for (unsigned index = work->start; index < work->end; index++) {
+    for (uint64_t index = work->start; index < work->end; index++) {
         sum += work->buf.elems[index];
     }
     work->sum_out = sum;
